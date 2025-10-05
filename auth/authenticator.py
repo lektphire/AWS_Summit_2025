@@ -53,7 +53,7 @@ class Authenticator:
     def login(self):
         if not st.session_state["connected"]:
             auth_url = self.get_auth_url()
-            st.link_button("login with google", auth_url)
+            st.link_button("Login with Google", auth_url)
 
     def check_auth(self):
 
@@ -62,6 +62,7 @@ class Authenticator:
                 st.toast(":green[user is authenticated and API credentials loaded]")
             else:
                 st.toast(":orange[user authenticated, but please re-login for Gmail access]")
+                self.logout()
             return
 
         if st.session_state.get("logout"):

@@ -6,6 +6,58 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from auth import Authenticator
 
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .main-header {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 10px;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .email-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    .email-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .category-badge {
+        background: #f0f2f6;
+        color: #262730;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    .priority-high { border-left: 4px solid #ff4444; }
+    .priority-medium { border-left: 4px solid #ffaa00; }
+    .priority-low { border-left: 4px solid #00aa44; }
+    .summary-card {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        color: #2c3e50;
+    }
+    .metric-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+""", unsafe_allow_html=True)
+
 load_dotenv()
 
 # emails of users that are allowed to login
@@ -43,11 +95,51 @@ def get_relative_time(email_date, current_time):
 
 # Function to fetch emails from backend
 def fetch_and_summarize_emails():
+    # Try to get Gmail emails first if credentials are available
+    if "google_creds" in st.session_state:
+        try:
+            creds = st.session_state["google_creds"]
+            creds_dict = {
+                "token": creds.token,
+                "refresh_token": creds.refresh_token,
+                "token_uri": creds.token_uri,
+                "client_id": creds.client_id,
+                "client_secret": creds.client_secret,
+                "scopes": creds.scopes,
+                "id_token": creds.id_token,
+                "expiry": creds.expiry.isoformat(),
+            }
+            
+            response = requests.post("http://127.0.0.1:3000/api/gmail-emails", json=creds_dict)
+            if response.status_code == 200:
+                gmail_emails = response.json()
+                emails = []
+                for email in gmail_emails:
+                    try:
+                        # Parse Gmail date format
+                        email_date = datetime.strptime(email["timestamp"][:25], "%a, %d %b %Y %H:%M:%S")
+                    except:
+                        email_date = datetime.now()
+                    
+                    emails.append({
+                        "id": email["id"],
+                        "sender": email["sender"],
+                        "subject": email["subject"],
+                        "body": email["body"],
+                        "date": email_date,
+                        "category": email.get("category", "Work"),
+                        "priority": "Medium",
+                        "summary": email["body"][:100] + "..."
+                    })
+                return emails
+        except Exception as e:
+            st.warning(f"Gmail fetch failed: {e}. Using demo data.")
+    
+    # Fallback to demo data
     try:
         response = requests.get("http://127.0.0.1:3000/api/emails")
         if response.status_code == 200:
             backend_emails = response.json()
-            # Convert backend email format to frontend format
             emails = []
             for email in backend_emails:
                 emails.append({
@@ -56,9 +148,9 @@ def fetch_and_summarize_emails():
                     "subject": email["subject"],
                     "body": email["body"],
                     "date": datetime.fromisoformat(email["timestamp"].replace('Z', '+00:00')).replace(tzinfo=None),
-                    "category": email.get("category", "Work"),  # Use backend category
-                    "priority": "Medium",  # Default priority
-                    "summary": email["body"][:100] + "..."  # Simple summary
+                    "category": email.get("category", "Work"),
+                    "priority": "Medium",
+                    "summary": email["body"][:100] + "..."
                 })
             return emails
         else:
@@ -94,8 +186,17 @@ authenticator = Authenticator(
 authenticator.check_auth()
 
 if not st.session_state.get("connected", False):
-    st.title("Sorta - AI Email Summarizer")
-    st.markdown("### Please log in to access your email summary")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("logo.png", width=300)
+    
+    st.markdown("""
+    <div class="main-header">
+        <h1>🎯 Sorta - AI Email Summarizer</h1>
+        <h3>Please log in to access your email summary</h3>
+        <p>Connect your Gmail to get started with AI-powered email organization</p>
+    </div>
+    """, unsafe_allow_html=True)
     authenticator.login()
     st.stop()
 
@@ -121,58 +222,26 @@ if "google_creds" in st.session_state:
         st.warning("Backend not available - using demo data")
 
 # Streamlit app
-st.title("Sorta")
-st.markdown("### AI-Powered Inbox Declutterer and Summarizer")
-st.write(f"Welcome! {st.session_state['user_info'].get('email')}")
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.image("logo.png", width=300)
 
-st.markdown("""
-**Instructions:**
-1. Use the sidebar on the left to customize rules for categorizing, prioritizing, or archiving your emails.
-2. In the 'AI-Generated Inbox Summary' section below, view summaries of all emails grouped by category.
-3. Scroll down to 'Your Full Inbox' to browse all emails organized by category using tabs.
-4. At the bottom, view demo metrics and provide feedback to help us improve.
-""")
+st.markdown(f"""
+<div class="main-header">
+    <h1>🎯 Sorta</h1>
+    <h3>AI-Powered Inbox Declutterer and Summarizer</h3>
+    <p>Welcome back, {st.session_state['user_info'].get('email')}! 👋</p>
+</div>
+""", unsafe_allow_html=True)
 
-# Sidebar for customization
-st.sidebar.header("Customization")
-st.sidebar.markdown("Define your own rules for categories, priorities, and filters.")
 
-# Store rules in session state
-if "rules" not in st.session_state:
-    st.session_state.rules = []
 
-# Form to add new rule
-with st.sidebar.form(key="add_rule_form"):
-    keyword = st.text_input("Keyword to match (e.g., 'promo')")
-    action = st.selectbox("Action", ["Category", "Priority", "Auto-Archive"])
-    value = st.text_input("Value (e.g., 'Promotions' for category, 'Low' for priority)")
-    submit = st.form_submit_button("Add Rule")
-    
-    if submit and keyword and value:
-        st.session_state.rules.append({"keyword": keyword.lower(), "action": action, "value": value})
-        st.sidebar.success("Rule added!")
 
-# Display current rules
-if st.session_state.rules:
-    st.sidebar.subheader("Current Rules")
-    for i, rule in enumerate(st.session_state.rules):
-        st.sidebar.write(f"{rule['keyword']} → {rule['action']}: {rule['value']}")
-        if st.sidebar.button(f"Remove Rule {i+1}", key=f"remove_{i}"):
-            del st.session_state.rules[i]
-            st.rerun()
 
-# Fetch emails and apply rules if not already loaded
+# Fetch emails if not already loaded
 if "emails" not in st.session_state:
     emails = fetch_and_summarize_emails()
-    emails = apply_custom_rules(emails, st.session_state.rules)
     st.session_state.emails = emails
-
-# Button to refresh and reapply rules
-if st.button("Refresh and Apply Rules"):
-    emails = fetch_and_summarize_emails()
-    emails = apply_custom_rules(emails, st.session_state.rules)
-    st.session_state.emails = emails
-    st.success("Inbox refreshed and rules applied!")
 
 
 
@@ -185,184 +254,10 @@ st.markdown("A high-level overview of your inbox, grouped by category.")
 
 # Fetch AI summary from backend
 try:
-    response = requests.get("http://127.0.0.1:3000/api/summarize")
-    if response.status_code == 200:
-        data = response.json()
-        st.info(f"AI Summary for {data['emailCount']} emails")
-        st.markdown("### 🤖 AI Analysis")
-        st.write(data['summary'])
-    else:
-        st.warning("AI summary not available - showing basic overview")
-except requests.exceptions.RequestException:
-    st.warning("Backend not available - showing basic overview")
-
-# Group emails by category
-all_categories = ["Work", "Education", "Finance", "Personal", "Subscriptions", "Promotions", "Spam"]
-existing_categories = list(set(email["category"] for email in st.session_state.emails))
-categories = [cat for cat in all_categories if cat in existing_categories] + [cat for cat in existing_categories if cat not in all_categories]
-
-# Reorder Categories section (moved here after categories are defined)
-st.sidebar.subheader("Reorder Categories")
-if "category_order" not in st.session_state:
-    st.session_state.category_order = categories
-
-reordered_categories = st.sidebar.multiselect(
-    "Drag to reorder (top = first tab):",
-    options=categories,
-    default=[cat for cat in st.session_state.category_order if cat in categories],
-    key="category_reorder"
-)
-
-if reordered_categories:
-    st.session_state.category_order = reordered_categories
-    categories = reordered_categories
-
-category_emails = {cat: [e for e in st.session_state.emails if e["category"] == cat] for cat in categories}
-
-st.markdown("### 📂 Category Breakdown")
-for category in categories:
-    emails = category_emails[category]
-    mini_summary = get_mini_summary(emails)
-    with st.expander(f"{category} ({len(emails)}) - {mini_summary}"):
-        emails.sort(key=lambda e: e["date"], reverse=True)
-        st.markdown("**Recent emails:**")
-        for email in emails:
-            st.markdown(f"- [{email['summary']}](#email-{email['id']})")
-
-# Full inbox section
-st.header("Your Full Inbox")
-st.markdown("Scroll through your entire inbox, organized by category.")
-
-# Add refresh button for inbox
-col1, col2 = st.columns([1, 4])
-with col1:
-    if st.button("🔄 Refresh Inbox"):
+    # Try to use Gmail credentials if available
+    if "google_creds" in st.session_state:
         try:
-            response = requests.get("http://127.0.0.1:3000/api/emails")
-            if response.status_code == 200:
-                backend_emails = response.json()
-                emails = []
-                for email in backend_emails:
-                    emails.append({
-                        "id": email["id"],
-                        "sender": email["sender"],
-                        "subject": email["subject"],
-                        "body": email["body"],
-                        "date": datetime.fromisoformat(email["timestamp"].replace('Z', '+00:00')).replace(tzinfo=None),
-                        "category": "Work",
-                        "priority": "Medium",
-                        "summary": email["body"][:100] + "..."
-                    })
-                emails = apply_custom_rules(emails, st.session_state.rules)
-                st.session_state.emails = emails
-                st.success(f"Refreshed {len(emails)} emails from backend!")
-            else:
-                st.error("Failed to refresh emails")
-        except requests.exceptions.RequestException as e:
-            st.error(f"Backend connection error: {e}")
-with col2:
-    st.write(f"Showing {len(st.session_state.emails)} emails from backend API")
-
-# Create tabs with "All" first, followed by categories
-tabs = st.tabs(["All"] + categories)
-
-# "All" tab
-with tabs[0]:
-    filtered_emails = st.session_state.emails
-    if not filtered_emails:
-        st.info("No emails found.")
-    else:
-        filtered_emails.sort(key=lambda e: e["date"], reverse=True)
-        with st.container(height=500):
-            for email in filtered_emails:
-                if email["date"].date() == current_time.date():
-                    date_str = email["date"].strftime("%I:%M %p")
-                else:
-                    date_str = email["date"].strftime("%a, %b %d, %I:%M %p")
-                relative_time = get_relative_time(email["date"], current_time)
-                date_display = f"{date_str} ({relative_time})"
-                
-                with st.container():
-                    st.markdown(f"<div id='email-{html.escape(email['id'])}'></div>", unsafe_allow_html=True)
-                    st.markdown(
-                        f"""
-                        <div style='background-color: rgba(0,0,0,0.05); padding: 8px; border-radius: 8px; border-left: 3px solid #1f77b4;'>
-                            <b>{html.escape(email['subject'])} - From: {html.escape(email['sender'])} (Priority: {html.escape(email['priority'])})</b>
-                        </div>
-                        <div style='padding: 5px; color: #666;'>
-                            {html.escape(date_display)} - {html.escape(email['summary'])}
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    with st.expander("View Full Email"):
-                        st.write(f"**Full Body:** {email['body']}")
-                        st.button("Mark as Read", key=f"read_{email['id']}_All")
-                        st.button("Archive", key=f"archive_{email['id']}_All")
-
-# Category tabs
-for i, category in enumerate(categories, 1):
-    with tabs[i]:
-        filtered_emails = category_emails[category]
-        if not filtered_emails:
-            st.info("No emails in this category.")
-            continue
-        
-        filtered_emails.sort(key=lambda e: e["date"], reverse=True)
-        with st.container(height=500):
-            for email in filtered_emails:
-                if email["date"].date() == current_time.date():
-                    date_str = email["date"].strftime("%I:%M %p")
-                else:
-                    date_str = email["date"].strftime("%a, %b %d, %I:%M %p")
-                relative_time = get_relative_time(email["date"], current_time)
-                date_display = f"{date_str} ({relative_time})"
-                
-                with st.container():
-                    st.markdown(f"<div id='email-{html.escape(email['id'])}'></div>", unsafe_allow_html=True)
-                    st.markdown(
-                        f"""
-                        <div style='background-color: rgba(0,0,0,0.05); padding: 8px; border-radius: 8px; border-left: 3px solid #1f77b4;'>
-                            <b>{html.escape(email['subject'])} - From: {html.escape(email['sender'])} (Priority: {html.escape(email['priority'])})</b>
-                        </div>
-                        <div style='padding: 5px;'>
-                            {html.escape(date_display)} - {html.escape(email['summary'])}
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    with st.expander("View Full Email"):
-                        st.write(f"**Full Body:** {email['body']}")
-                        st.button("Mark as Read", key=f"read_{email['id']}_{category}")
-                        st.button("Archive", key=f"archive_{email['id']}_{category}")
-
-# Metrics section
-st.header("Usage Metrics (Demo)")
-col1, col2, col3 = st.columns(3)
-col1.metric("Time Saved", "15 min/day")
-col2.metric("Unread Reduction", "50%")
-col3.metric("Satisfaction Score", "4.8/5")
-
-# Feedback form
-st.header("Provide Feedback")
-with st.form(key="feedback_form"):
-    feedback = st.text_area("How can we improve Sorta?")
-    rating = st.slider("Rate your experience", 1, 5, 3)
-    submit_feedback = st.form_submit_button("Submit")
-    if submit_feedback:
-        st.success("Thank you for your feedback!")
-
-if st.session_state["connected"]:
-    st.write(f"welcome! {st.session_state['user_info'].get('email')}")
-    user_input = st.text_area("What do you want to do with your inbox?")
-    if st.button("Tell the AI agent!"):
-        if not user_input:
-            st.warning("Please enter a message.")
-        elif "google_creds" in st.session_state:
             creds = st.session_state["google_creds"]
-
-            # The Google creds object isn't directly JSON serializable.
-            # You need to convert it into a dictionary.
             creds_dict = {
                 "token": creds.token,
                 "refresh_token": creds.refresh_token,
@@ -371,28 +266,106 @@ if st.session_state["connected"]:
                 "client_secret": creds.client_secret,
                 "scopes": creds.scopes,
                 "id_token": creds.id_token,
-                "expiry": creds.expiry.isoformat(), # Convert datetime to string
+                "expiry": creds.expiry.isoformat(),
             }
-            message = str(user_input)
+            response = requests.post("http://127.0.0.1:3000/api/summarize", json=creds_dict)
+        except:
+            response = requests.get("http://127.0.0.1:3000/api/summarize")
+    else:
+        response = requests.get("http://127.0.0.1:3000/api/summarize")
+    
+    if response.status_code == 200:
+        data = response.json()
+        st.markdown(f"""
+        <div class="summary-card">
+            <h3 style="color: #2c3e50; margin-top: 0;">🤖 AI Analysis</h3>
+            <div style="background: white; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                <p style="color: #2c3e50; margin: 0;"><strong>📊 Analyzed {data['emailCount']} emails</strong></p>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-top: 0.5rem; color: #34495e;">
+                    {data['summary']}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.warning("AI summary not available - showing basic overview")
+except requests.exceptions.RequestException:
+    st.warning("Backend not available - showing basic overview")
 
-            try:
-                # Define the Flask backend URL
-                backend_url = "http://127.0.0.1:5000/summarize-emails"
 
-                # Make a POST request with the credentials
-                response = requests.post(backend_url, json={
-                    'message': message,
-                    'creds_dict': creds_dict,
-                })
-                response.raise_for_status() # Raise an exception for bad status codes
 
-                st.success("Credentials sent to backend successfully!")
-                st.write("Backend response:", response.json())
+# Full inbox section
+st.header("Your Full Inbox")
+st.markdown("Browse all your emails in chronological order.")
 
-            except requests.exceptions.RequestException as e:
-                st.error(f"Error sending credentials to backend: {e}")
-    if st.button("Log out"):
+st.write(f"Showing {len(st.session_state.emails)} emails")
+
+# Display all emails
+filtered_emails = st.session_state.emails
+if not filtered_emails:
+    st.info("No emails found.")
+else:
+    filtered_emails.sort(key=lambda e: e["date"], reverse=True)
+    with st.container(height=500):
+        for email in filtered_emails:
+            if email["date"].date() == current_time.date():
+                date_str = email["date"].strftime("%I:%M %p")
+            else:
+                date_str = email["date"].strftime("%a, %b %d, %I:%M %p")
+            relative_time = get_relative_time(email["date"], current_time)
+            date_display = f"{date_str} ({relative_time})"
+            
+            with st.container():
+                st.markdown(f"<div id='email-{html.escape(email['id'])}'></div>", unsafe_allow_html=True)
+                priority_class = f"priority-{email['priority'].lower()}"
+                st.markdown(
+                    f"""
+                    <div class="email-card {priority_class}">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <h4 style="margin: 0; color: #2c3e50;">{html.escape(email['subject'])}</h4>
+                            <span class="category-badge">{html.escape(email.get('category', 'Email'))}</span>
+                        </div>
+                        <div style="color: #7f8c8d; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                            📧 {html.escape(email['sender'])} • ⏰ {html.escape(date_display)} • 🎯 {html.escape(email['priority'])}
+                        </div>
+                        <div style="color: #34495e; line-height: 1.4;">
+                            {html.escape(email['summary'])}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+                with st.expander("View Full Email"):
+                    st.write(f"**Full Body:** {email['body']}")
+                    st.button("Mark as Read", key=f"read_{email['id']}")
+                    st.button("Archive", key=f"archive_{email['id']}")
+
+# Feedback form
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("""
+<div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;">
+    <h4 style="color: #2c3e50; margin-top: 0;">💬 Share Your Feedback</h4>
+    <p style="color: #34495e; margin-bottom: 1rem;">Help us improve Sorta! What do you think?</p>
+</div>
+""", unsafe_allow_html=True)
+
+if "feedback_key" not in st.session_state:
+    st.session_state.feedback_key = 0
+
+feedback = st.text_input(
+    "Your feedback:",
+    placeholder="Type your feedback and press Enter...",
+    key=f"feedback_{st.session_state.feedback_key}"
+)
+
+if feedback:
+    st.success("✨ Thank you for your feedback!")
+    st.session_state.feedback_key += 1
+    st.rerun()
+
+# Logout button
+st.markdown("<br>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns([2, 1, 2])
+with col2:
+    if st.button("🚪 Log out", type="secondary"):
         authenticator.logout()
-
-if not st.session_state["connected"]:
-    st.write("you have to log in first ...")
