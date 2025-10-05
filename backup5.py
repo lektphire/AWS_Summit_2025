@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import random
+import requests
 from datetime import datetime, timedelta
 
 # Function to generate relative time string
@@ -161,22 +162,112 @@ def apply_custom_rules(emails, rules):
 
 # Function to generate mini-summary for a category
 def get_mini_summary(emails):
-    senders = [email["sender"].split('@')[0].capitalize() for email in emails]
+    senders = []
+    for email in emails:
+        sender = email["sender"].split('@')[0]
+        # Handle specific sender name formatting
+        if sender.lower() == sender:
+            if sender == "mikewazowski":
+                sender = "Mike Wazowski"
+            elif sender == "wall-e":
+                sender = "Wall-E"
+            else:
+                sender = sender.capitalize()
+        senders.append(sender)
     return ", ".join(senders[:3]) + ("..." if len(senders) > 3 else "")
+
+# Static color palette for categories (default values)
+default_colors = {
+    "Work": "#4B8BBE",  # Blue
+    "Education": "#2ECC71",  # Green
+    "Finance": "#F1C40F",  # Yellow
+    "Personal": "#3498DB",  # Light Blue
+    "Subscriptions": "#9B59B6",  # Purple
+    "Promotions": "#E67E22",  # Orange
+    "Spam": "#E74C3C"  # Red
+}
+
+# Initialize category colors and order in session state
+if "category_colors" not in st.session_state:
+    st.session_state.category_colors = default_colors.copy()
+
+default_priority = ["Work", "Education", "Finance", "Personal", "Subscriptions", "Promotions", "Spam"]
+categories = sorted(list(set(email["category"] for email in fetch_and_summarize_emails())))
+if "category_order" not in st.session_state:
+    st.session_state.category_order = [cat for cat in default_priority if cat in categories]
 
 # Streamlit app
 st.title("Sorta")
-st.markdown("### AI-Powered Inbox Declutterer and Summarizer")
+st.markdown(
+    """
+    <h2 style='margin-top: 2px;'>Your AI-Powered Inbox Declutterer and Summarizer</h2>
+    """,
+    unsafe_allow_html=True
+)
 
 st.markdown("""
 Welcome to Sorta, Bob Parr!
 
 **Instructions:**
-1. Use the sidebar on the left to customize rules for categorizing, prioritizing, or archiving your emails. Add rules by entering a keyword, selecting an action, and providing a value.
-2. In the 'AI-Generated Inbox Summary' section below, view summaries of all emails grouped by category. Click a category to see a list of key points for each email, with links to jump to the full email.
-3. Scroll down to 'Your Full Inbox' to browse all emails organized by category using tabs. Each email shows the subject, sender, date, and summary by default; expand to see the full body and action buttons.
+1. In the 'AI-Generated Inbox Summary' section below, view summaries of all emails grouped by category. Click a category to see a list of key points for each email, with links to jump to the full email.
+2. Scroll down to 'Your Full Inbox' to browse all emails organized by category using tabs. Each email shows key details; expand to view the full body and actions.
+3. Use the sidebar on the left to customize rules for categorizing, prioritizing, or archiving your emails. Add rules by entering a keyword, selecting an action, and providing a value.
 4. At the bottom, view demo metrics and provide feedback to help us improve.
 """)
+
+# JavaScript for email highlight on link click
+st.markdown(
+    """
+    <script>
+        window.addEventListener('hashchange', function() {
+            const hash = window.location.hash;
+            if (hash) {
+                const element = document.querySelector(hash);
+                if (element) {
+                    element.classList.add('highlight');
+                    setTimeout(() => {
+                        element.classList.remove('highlight');
+                    }, 5000);
+                }
+            }
+        });
+        // Trigger highlight on page load if hash exists
+        window.addEventListener('load', function() {
+            const hash = window.location.hash;
+            if (hash) {
+                const element = document.querySelector(hash);
+                if (element) { element.classList.add('highlight'); }
+            }
+        });
+    </script>
+    <style>
+        .highlight {
+            background-color: #FFFFCC !important;
+            animation: fadeOut 5s forwards;
+        }
+        @keyframes fadeOut {
+            from { background-color: #FFFFCC; }
+            to { background-color: transparent; }
+        }
+        /* Compact color picker styling */
+        .color-picker-container label {
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        .color-picker-container input[type='color'] {
+            width: 50px;
+            height: 30px;
+            margin: 2px 0;
+        }
+        /* Horizontal button styling */
+        div[data-testid='stHorizontalBlock'] button {
+            margin: 2px;
+            padding: 5px 10px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # Sidebar for customization
 st.sidebar.header("Customization")
@@ -206,25 +297,40 @@ if st.session_state.rules:
             del st.session_state.rules[i]
             st.rerun()
 
-# Category priority reordering
-st.sidebar.subheader("Reorder Category Priorities")
-default_priority = ["Work", "Education", "Finance", "Personal", "Subscriptions", "Promotions", "Spam"]
-categories = sorted(list(set(email["category"] for email in fetch_and_summarize_emails())))
-# Ensure all default categories are included, even if no emails exist
-all_categories = list(set(categories + default_priority))
-if "category_order" not in st.session_state:
-    # Initialize with default priority, including only categories with emails
-    st.session_state.category_order = [cat for cat in default_priority if cat in categories]
-ordered_categories = st.sidebar.multiselect(
-    "Drag to reorder categories by priority (top = highest)",
-    options=all_categories,
+# Refresh and apply rules button
+if st.sidebar.button("Refresh and Apply Rules"):
+    emails = fetch_and_summarize_emails()
+    emails = apply_custom_rules(emails, st.session_state.rules)
+    st.session_state.emails = emails
+    st.success("Inbox refreshed and rules applied!")
+
+# Reorder categories
+st.sidebar.subheader("Reorder Categories")
+st.sidebar.markdown("Select and arrange categories to set their display order.")
+new_order = st.sidebar.multiselect(
+    "Category Order",
+    options=categories,
     default=st.session_state.category_order,
-    key="category_order_select"
+    key="category_order_input"
 )
-if ordered_categories:
-    st.session_state.category_order = ordered_categories
-else:
-    st.session_state.category_order = [cat for cat in default_priority if cat in categories]
+if st.sidebar.button("Refresh with New Order"):
+    if set(new_order) == set(categories) and len(new_order) == len(categories):
+        st.session_state.category_order = new_order
+        st.rerun()
+    else:
+        st.sidebar.error("Please select all categories in the desired order.")
+
+# Improved color selection tool
+st.sidebar.subheader("Customize Category Colors")
+st.sidebar.markdown("Select a color for each category.")
+cols = st.sidebar.columns(2)
+for i, cat in enumerate(categories):
+    with cols[i % 2]:
+        st.markdown(f"**{cat}**")
+        color = st.color_picker("", value=st.session_state.category_colors.get(cat, "#CCCCCC"), key=f"color_{cat}")
+        if color != st.session_state.category_colors.get(cat, "#CCCCCC"):
+            st.session_state.category_colors[cat] = color
+            st.rerun()
 
 # Template mode toggle
 use_template = st.sidebar.checkbox("Use Baseline Template Mode", value=True)
@@ -237,32 +343,42 @@ if "emails" not in st.session_state:
     emails = apply_custom_rules(emails, st.session_state.rules)
     st.session_state.emails = emails
 
-# Button to refresh and reapply rules
-if st.button("Refresh and Apply Rules"):
-    emails = fetch_and_summarize_emails()
-    emails = apply_custom_rules(emails, st.session_state.rules)
-    st.session_state.emails = emails
-    st.success("Inbox refreshed and rules applied!")
-
 # Current time for relative time calculation
 current_time = datetime.now()
 
 # Summaries section
 st.header("AI-Generated Inbox Summary")
-st.markdown("A high-level overview of your inbox, grouped by category. Click a category to view summaries of all emails, with links to jump to the full email. Categories are sorted by your priority settings.")
+st.markdown("A high-level overview of your inbox, grouped by category. Click a category to view summaries of all emails, with links to jump to the full email. Categories are sorted by your custom order.")
 
 # Group emails by category
 category_emails = {cat: [e for e in st.session_state.emails if e["category"] == cat] for cat in categories}
 
-# Use user-defined category order, falling back to default priority
+# Use custom category order
 sorted_categories = [cat for cat in st.session_state.category_order if cat in category_emails]
 
 for category in sorted_categories:
     emails = category_emails[category]
     mini_summary = get_mini_summary(emails)
-    with st.expander(f"{category} ({len(emails)}) - {mini_summary}"):
-        # Sort emails within category by date descending
-        emails.sort(key=lambda e: e["date"], reverse=True)
+    color = st.session_state.category_colors.get(category, "#CCCCCC")
+    with st.expander(f"{category} ({len(emails)}) - {mini_summary}", expanded=False):
+        # Apply solid colored background to expander header
+        st.markdown(
+            f"""
+            <style>
+                div[data-testid='stExpander'] div[role='button'] {{
+                    background-color: {color} !important;
+                    color: #FFFFFF !important;
+                    border-radius: 5px;
+                    padding: 10px;
+                }}
+                div[data-testid='stExpander'] div[role='button'] p {{
+                    color: #FFFFFF !important;
+                    font-weight: bold;
+                }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
         st.markdown("**Summary of emails:**")
         for email in emails:
             st.markdown(f"- [{email['summary']}](#email-{email['id']})")
@@ -291,28 +407,34 @@ with tabs[0]:
                 else:
                     date_str = email["date"].strftime("%a, %b %d, %I:%M %p")
                 relative_time = get_relative_time(email["date"], current_time)
-                date_display = f"{date_str} ({relative_time})"
                 
                 with st.container():
                     # Anchor tag for email linking
                     st.markdown(f"<div id='email-{email['id']}'></div>", unsafe_allow_html=True)
-                    # Display subject, sender, priority, date, and summary outside expander
+                    # Apply colored border based on category
+                    color = st.session_state.category_colors.get(email["category"], "#CCCCCC")
                     st.markdown(
                         f"""
-                        <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
-                            <b>{email['subject']} - From: {email['sender']} (Priority: {email['priority']})</b>
-                        </div>
-                        <div style='padding: 5px;'>
-                            {date_display} - {email['summary']}
+                        <div style='border-left: 4px solid {color}; padding-left: 10px;'>
+                            <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
+                                <b>{email['subject']} - {email['summary']}</b>
+                            </div>
+                            <div style='display: flex; justify-content: space-between; padding: 5px;'>
+                                <span>From: {email['sender']} (Priority: {email['priority']})</span>
+                                <span>{date_str} ({relative_time})</span>
+                            </div>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-                    # Expander for full body and actions only
+                    # Expander for full body and actions
                     with st.expander("View Full Email"):
                         st.write(f"**Full Body:** {email['body']}")
-                        st.button("Mark as Read", key=f"read_{email['id']}_All_{random.randint(0,10000)}")
-                        st.button("Archive", key=f"archive_{email['id']}_All_{random.randint(0,10000)}")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.button("Mark as Read", key=f"read_{email['id']}_All_{random.randint(0,10000)}")
+                        with col2:
+                            st.button("Archive", key=f"archive_{email['id']}_All_{random.randint(0,10000)}")
 
 # Category tabs
 for i, category in enumerate(sorted_categories, 1):
@@ -333,28 +455,34 @@ for i, category in enumerate(sorted_categories, 1):
                 else:
                     date_str = email["date"].strftime("%a, %b %d, %I:%M %p")
                 relative_time = get_relative_time(email["date"], current_time)
-                date_display = f"{date_str} ({relative_time})"
                 
                 with st.container():
                     # Anchor tag for email linking
                     st.markdown(f"<div id='email-{email['id']}'></div>", unsafe_allow_html=True)
-                    # Display subject, sender, priority, date, and summary outside expander
+                    # Apply colored border based on category
+                    color = st.session_state.category_colors.get(category, "#CCCCCC")
                     st.markdown(
                         f"""
-                        <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
-                            <b>{email['subject']} - From: {email['sender']} (Priority: {email['priority']})</b>
-                        </div>
-                        <div style='padding: 5px;'>
-                            {date_display} - {email['summary']}
+                        <div style='border-left: 4px solid {color}; padding-left: 10px;'>
+                            <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
+                                <b>{email['subject']} - {email['summary']}</b>
+                            </div>
+                            <div style='display: flex; justify-content: space-between; padding: 5px;'>
+                                <span>From: {email['sender']} (Priority: {email['priority']})</span>
+                                <span>{date_str} ({relative_time})</span>
+                            </div>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-                    # Expander for full body and actions only
+                    # Expander for full body and actions
                     with st.expander("View Full Email"):
                         st.write(f"**Full Body:** {email['body']}")
-                        st.button("Mark as Read", key=f"read_{email['id']}_{category}_{random.randint(0,10000)}")
-                        st.button("Archive", key=f"archive_{email['id']}_{category}_{random.randint(0,10000)}")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.button("Mark as Read", key=f"read_{email['id']}_{category}_{random.randint(0,10000)}")
+                        with col2:
+                            st.button("Archive", key=f"archive_{email['id']}_{category}_{random.randint(0,10000)}")
 
 # Metrics section (for testing success)
 st.header("Usage Metrics (Demo)")

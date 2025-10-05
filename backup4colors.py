@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 from datetime import datetime, timedelta
+import streamlit.components.v1 as components
 
 # Function to generate relative time string
 def get_relative_time(email_date, current_time):
@@ -166,7 +167,12 @@ def get_mini_summary(emails):
 
 # Streamlit app
 st.title("Sorta")
-st.markdown("### AI-Powered Inbox Declutterer and Summarizer")
+st.markdown(
+    """
+    <h2 style='margin-top: 5px;'>Your AI-Powered Inbox Declutterer and Summarizer</h2>
+    """,
+    unsafe_allow_html=True
+)
 
 st.markdown("""
 Welcome to Sorta, Bob Parr!
@@ -206,25 +212,89 @@ if st.session_state.rules:
             del st.session_state.rules[i]
             st.rerun()
 
-# Category priority reordering
-st.sidebar.subheader("Reorder Category Priorities")
+# Category reordering and color customization in Customization section
+st.sidebar.subheader("Edit Category Priorities")
+st.sidebar.markdown("Drag and drop to reorder categories (top = highest priority). Select a color for each category.")
+
+# Initialize category order and colors
 default_priority = ["Work", "Education", "Finance", "Personal", "Subscriptions", "Promotions", "Spam"]
 categories = sorted(list(set(email["category"] for email in fetch_and_summarize_emails())))
-# Ensure all default categories are included, even if no emails exist
 all_categories = list(set(categories + default_priority))
 if "category_order" not in st.session_state:
-    # Initialize with default priority, including only categories with emails
     st.session_state.category_order = [cat for cat in default_priority if cat in categories]
-ordered_categories = st.sidebar.multiselect(
-    "Drag to reorder categories by priority (top = highest)",
-    options=all_categories,
-    default=st.session_state.category_order,
-    key="category_order_select"
+
+# Default color palette
+default_colors = {
+    "Work": "#4B8BBE",  # Blue
+    "Education": "#2ECC71",  # Green
+    "Finance": "#F1C40F",  # Yellow
+    "Personal": "#3498DB",  # Light Blue
+    "Subscriptions": "#9B59B6",  # Purple
+    "Promotions": "#E67E22",  # Orange
+    "Spam": "#E74C3C"  # Red
+}
+if "category_colors" not in st.session_state:
+    st.session_state.category_colors = {cat: default_colors.get(cat, "#CCCCCC") for cat in all_categories}
+
+# Hidden text input to capture reordered categories
+if "category_order_input" not in st.session_state:
+    st.session_state.category_order_input = ",".join(st.session_state.category_order)
+
+# Update category order when input changes
+if st.session_state.category_order_input:
+    new_order = st.session_state.category_order_input.split(",")
+    if set(new_order).issubset(set(all_categories)) and len(new_order) == len(st.session_state.category_order):
+        st.session_state.category_order = new_order
+
+# Custom HTML/JavaScript for drag-and-drop
+drag_drop_html = """
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<style>
+    .sortable-list { list-style-type: none; padding: 0; }
+    .sortable-item { padding: 10px; margin: 6px 0; border-radius: 5px; cursor: move; color: white; font-weight: bold; }
+    .sortable-item:hover { opacity: 0.8; }
+</style>
+<ul id="sortable-list" class="sortable-list">
+"""
+for cat in st.session_state.category_order:
+    color = st.session_state.category_colors.get(cat, "#CCCCCC")
+    drag_drop_html += f'<li class="sortable-item" data-id="{cat}" style="background-color: {color};">{cat}</li>'
+drag_drop_html += """
+</ul>
+<script>
+    const sortableList = document.getElementById('sortable-list');
+    Sortable.create(sortableList, {
+        animation: 150,
+        onEnd: function(evt) {
+            const items = sortableList.querySelectorAll('.sortable-item');
+            const newOrder = Array.from(items).map(item => item.getAttribute('data-id'));
+            window.parent.postMessage({
+                type: 'streamlit:setComponentValue',
+                value: newOrder.join(',')
+            }, '*');
+        }
+    });
+</script>
+"""
+
+# Render drag-and-drop component in Customization section
+components.html(drag_drop_html, height=300)
+
+# Hidden text input to receive reordered categories
+st.text_input(
+    "Category Order",
+    value=st.session_state.category_order_input,
+    key="category_order_input",
+    label_visibility="collapsed"
 )
-if ordered_categories:
-    st.session_state.category_order = ordered_categories
-else:
-    st.session_state.category_order = [cat for cat in default_priority if cat in categories]
+
+# Color picker for each category
+st.sidebar.markdown("**Choose Category Colors**")
+for cat in st.session_state.category_order:
+    color = st.sidebar.color_picker(f"Color for {cat}", value=st.session_state.category_colors[cat], key=f"color_{cat}")
+    if color != st.session_state.category_colors[cat]:
+        st.session_state.category_colors[cat] = color
+        st.rerun()
 
 # Template mode toggle
 use_template = st.sidebar.checkbox("Use Baseline Template Mode", value=True)
@@ -260,9 +330,17 @@ sorted_categories = [cat for cat in st.session_state.category_order if cat in ca
 for category in sorted_categories:
     emails = category_emails[category]
     mini_summary = get_mini_summary(emails)
-    with st.expander(f"{category} ({len(emails)}) - {mini_summary}"):
-        # Sort emails within category by date descending
-        emails.sort(key=lambda e: e["date"], reverse=True)
+    color = st.session_state.category_colors.get(category, "#CCCCCC")
+    with st.expander(f"{category} ({len(emails)}) - {mini_summary}", expanded=False):
+        # Apply colored border to expander content
+        st.markdown(
+            f"""
+            <style>
+                div[data-testid='stExpander'] div[role='button'] {{ border-left: 4px solid {color}; padding-left: 10px; }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
         st.markdown("**Summary of emails:**")
         for email in emails:
             st.markdown(f"- [{email['summary']}](#email-{email['id']})")
@@ -296,14 +374,17 @@ with tabs[0]:
                 with st.container():
                     # Anchor tag for email linking
                     st.markdown(f"<div id='email-{email['id']}'></div>", unsafe_allow_html=True)
-                    # Display subject, sender, priority, date, and summary outside expander
+                    # Apply colored border based on category
+                    color = st.session_state.category_colors.get(email["category"], "#CCCCCC")
                     st.markdown(
                         f"""
-                        <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
-                            <b>{email['subject']} - From: {email['sender']} (Priority: {email['priority']})</b>
-                        </div>
-                        <div style='padding: 5px;'>
-                            {date_display} - {email['summary']}
+                        <div style='border-left: 4px solid {color}; padding-left: 10px;'>
+                            <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
+                                <b>{email['subject']} - From: {email['sender']} (Priority: {email['priority']})</b>
+                            </div>
+                            <div style='padding: 5px;'>
+                                {date_display} - {email['summary']}
+                            </div>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -338,14 +419,17 @@ for i, category in enumerate(sorted_categories, 1):
                 with st.container():
                     # Anchor tag for email linking
                     st.markdown(f"<div id='email-{email['id']}'></div>", unsafe_allow_html=True)
-                    # Display subject, sender, priority, date, and summary outside expander
+                    # Apply colored border based on category
+                    color = st.session_state.category_colors.get(category, "#CCCCCC")
                     st.markdown(
                         f"""
-                        <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
-                            <b>{email['subject']} - From: {email['sender']} (Priority: {email['priority']})</b>
-                        </div>
-                        <div style='padding: 5px;'>
-                            {date_display} - {email['summary']}
+                        <div style='border-left: 4px solid {color}; padding-left: 10px;'>
+                            <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
+                                <b>{email['subject']} - From: {email['sender']} (Priority: {email['priority']})</b>
+                            </div>
+                            <div style='padding: 5px;'>
+                                {date_display} - {email['summary']}
+                            </div>
                         </div>
                         """,
                         unsafe_allow_html=True
