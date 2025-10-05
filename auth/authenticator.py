@@ -58,7 +58,10 @@ class Authenticator:
     def check_auth(self):
 
         if st.session_state["connected"]:
-            st.toast(":green[user is authenticated]")
+            if st.session_state.get("google_creds"):
+                st.toast(":green[user is authenticated and API credentials loaded]")
+            else:
+                st.toast(":orange[user authenticated, but please re-login for Gmail access]")
             return
 
         if st.session_state.get("logout"):
@@ -96,6 +99,8 @@ class Authenticator:
                     "oauth_id": oauth_id,
                     "email": email,
                 }
+                st.session_state["google_creds"] = creds
+                st.toast(":green[login successful and Gmail access granted!]")
             else:
                 st.toast(":red[access denied: Unauthorized user]")
             # no rerun
@@ -104,5 +109,6 @@ class Authenticator:
         st.session_state["logout"] = True
         st.session_state["user_info"] = None
         st.session_state["connected"] = None
+        st.session_state["google_creds"] = None
         self.auth_token_manager.delete_token()
         # no rerun
