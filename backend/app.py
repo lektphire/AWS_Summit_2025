@@ -2,12 +2,45 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from email_data import emails
 from generator import summarize_emails
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+import datetime
 
 app = Flask(__name__)
 CORS(app)
 
 summaries = []
 
+@app.route("/gmail-labels", methods=["POST"])
+def gmail_access():
+    if not request.json:
+        return jsonify({"error": "Invalid request, JSON not found"}), 400
+
+    creds_dict = request.json
+
+    try:
+        # Convert the expiry back to a datetime object
+        creds_dict["expiry"] = datetime.datetime.fromisoformat(creds_dict["expiry"])
+
+        # Recreate the Credentials object from the received dictionary
+        creds = Credentials(**creds_dict)
+
+        # Now, you can use these credentials to build the Gmail service
+        gmail_service = build("gmail", "v1", credentials=creds)
+
+        # Example: List the user's labels
+        results = gmail_service.users().labels().list(userId="me").execute()
+        labels = results.get("labels", [])
+
+        if not labels:
+            return jsonify({"message": "No labels found."})
+        else:
+            label_names = [label["name"] for label in labels]
+            return jsonify({"message": "Successfully accessed Gmail!", "labels": label_names})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 # Email routes
 @app.route('/api/emails')
 def get_emails():
@@ -18,7 +51,7 @@ def get_email(email_id):
     email = next((e for e in emails if e['id'] == email_id), None)
     return jsonify(email) if email else jsonify({"error": "Not found"}), 404
 
-@app.route('/api/summarize', methods=['POST'])
+@app.route('/api/summarize')
 def summarize_all_emails():
     # Get all email bodies
     all_email_content = "\n\n---\n\n".join([f"Subject: {e['subject']}\nFrom: {e['sender']}\nBody: {e['body']}" for e in emails])
