@@ -1,11 +1,17 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
+from email_data import emails
+from generator import summarize_emails
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import datetime
 
 app = Flask(__name__)
+CORS(app)
 
-@app.route("/gmail-access", methods=["POST"])
+summaries = []
+
+@app.route("/gmail-labels", methods=["POST"])
 def gmail_access():
     if not request.json:
         return jsonify({"error": "Invalid request, JSON not found"}), 400
@@ -34,6 +40,39 @@ def gmail_access():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+# Email routes
+@app.route('/api/emails')
+def get_emails():
+    return jsonify(emails)
 
-if __name__ == "__main__":
-    app.run(debug=True)
+@app.route('/api/emails/<email_id>')
+def get_email(email_id):
+    email = next((e for e in emails if e['id'] == email_id), None)
+    return jsonify(email) if email else jsonify({"error": "Not found"}), 404
+
+@app.route('/api/summarize')
+def summarize_all_emails():
+    # Get all email bodies
+    all_email_content = "\n\n---\n\n".join([f"Subject: {e['subject']}\nFrom: {e['sender']}\nBody: {e['body']}" for e in emails])
+    
+    # Generate summary for all emails
+    ai_summary = summarize_emails(all_email_content)
+    
+    return jsonify({
+        "summary": ai_summary,
+        "emailCount": len(emails)
+    })
+
+@app.route('/api/summaries')
+def get_summaries():
+    return jsonify(summaries)
+
+@app.route('/api/search')
+def search_emails():
+    q = request.args.get('q', '').lower()
+    filtered = [e for e in emails if q in e['subject'].lower() or q in e['body'].lower()]
+    return jsonify(filtered)
+
+if __name__ == '__main__':
+    app.run(port=3000)
