@@ -1,3 +1,7 @@
 credentials.json
 .env
 __pycache__
+aws_hack_accessKeys.csv
+.DS_Store
+*/.DS_Store
+
