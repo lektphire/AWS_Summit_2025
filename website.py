@@ -333,35 +333,43 @@ with st.form(key="feedback_form"):
 
 if st.session_state["connected"]:
     st.write(f"welcome! {st.session_state['user_info'].get('email')}")
-    if "google_creds" in st.session_state:
-        creds = st.session_state["google_creds"]
+    user_input = st.text_area("What do you want to do with your inbox?")
+    if st.button("Tell the AI agent!"):
+        if not user_input:
+            st.warning("Please enter a message.")
+        elif "google_creds" in st.session_state:
+            creds = st.session_state["google_creds"]
 
-        # The Google creds object isn't directly JSON serializable.
-        # You need to convert it into a dictionary.
-        creds_dict = {
-            "token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
-            "scopes": creds.scopes,
-            "id_token": creds.id_token,
-            "expiry": creds.expiry.isoformat(), # Convert datetime to string
-        }
+            # The Google creds object isn't directly JSON serializable.
+            # You need to convert it into a dictionary.
+            creds_dict = {
+                "token": creds.token,
+                "refresh_token": creds.refresh_token,
+                "token_uri": creds.token_uri,
+                "client_id": creds.client_id,
+                "client_secret": creds.client_secret,
+                "scopes": creds.scopes,
+                "id_token": creds.id_token,
+                "expiry": creds.expiry.isoformat(), # Convert datetime to string
+            }
+            message = str(user_input)
 
-        try:
-            # Define the Flask backend URL
-            backend_url = "http://127.0.0.1:5000/summarize-emails"
+            try:
+                # Define the Flask backend URL
+                backend_url = "http://127.0.0.1:5000/summarize-emails"
 
-            # Make a POST request with the credentials
-            response = requests.post(backend_url, json=creds_dict)
-            response.raise_for_status() # Raise an exception for bad status codes
+                # Make a POST request with the credentials
+                response = requests.post(backend_url, json={
+                    'message': message,
+                    'creds_dict': creds_dict,
+                })
+                response.raise_for_status() # Raise an exception for bad status codes
 
-            st.success("Credentials sent to backend successfully!")
-            st.write("Backend response:", response.json())
+                st.success("Credentials sent to backend successfully!")
+                st.write("Backend response:", response.json())
 
-        except requests.exceptions.RequestException as e:
-            st.error(f"Error sending credentials to backend: {e}")
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error sending credentials to backend: {e}")
     if st.button("Log out"):
         authenticator.logout()
 

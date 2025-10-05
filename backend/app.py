@@ -18,13 +18,16 @@ def get_gmail_helpers(service):
 
         Args:
             service: An authorized Gmail API service object.
-            num_emails: The number of recent emails to retrieve. Defaults to 3.
+            num_emails: The integer number of recent emails to retrieve. Defaults to 3.
 
         Returns:
             A list of dictionaries, where each dictionary contains the subject,
             sender, date, and body of an email. Returns an empty list on error.
         """
         emails = []
+        if isinstance(num_emails, str):
+            num_emails = int(''.join(c for c in num_emails if c.isdigit()))
+        print(num_emails)
         try:
             # Get the IDs of the most recent emails
             results = service.users().messages().list(userId='me', maxResults=num_emails).execute()
@@ -100,8 +103,14 @@ model = BedrockModel(
 )
 
 SYSTEM_PROMPT = """
-    You are a helpful assistant for helping the user manage their Gmail inbox. 
-    Summarize the most recent emails with the read_recent_emails() tool call
+    You are an email assistant that creates concise summaries of email content. 
+    Focus on key actions, deadlines, and important information. 
+    Group related emails together.
+    If there is no email content, say 'No recent email content'.
+    If there is no summary, say 'No summary'.
+    Ignore obvious spam.
+    Categorize emails urgent, updates, subscribed emails, communications, and low-priority.
+    Do not exceed 100 words per section.
 """
 # @app.route("/test-chat", methods=['POST'])
 # def test_chat():
@@ -127,7 +136,8 @@ def summarize_emails():
     if not request.json:
         return jsonify({"error": "Invalid request, JSON not found"}), 400
 
-    creds_dict = request.json
+    message = request.json['message']
+    creds_dict = request.json['creds_dict']
 
     try:
         # Convert the expiry back to a datetime object
@@ -144,10 +154,6 @@ def summarize_emails():
             tools=[get_gmail_helpers(gmail_service)],
             system_prompt=SYSTEM_PROMPT,
         )
-
-        message = """
-        Tell me what's in my most recent 3 emails
-        """
 
         agent(message)
         result = agent.messages[-1]['content'][0]['text']
