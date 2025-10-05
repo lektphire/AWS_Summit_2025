@@ -18,7 +18,7 @@ def get_email(email_id):
     email = next((e for e in emails if e['id'] == email_id), None)
     return jsonify(email) if email else jsonify({"error": "Not found"}), 404
 
-@app.route('/api/summarize', methods=['POST'])
+@app.route('/api/summarize')
 def summarize_all_emails():
     # Get all email bodies
     all_email_content = "\n\n---\n\n".join([f"Subject: {e['subject']}\nFrom: {e['sender']}\nBody: {e['body']}" for e in emails])
