@@ -1,42 +1,17 @@
 emails = [
-    {
-        "id": "1",
-        "subject": "Q4 Sales Report - Action Required",
-        "sender": "sarah.manager@company.com",
-        "body": "Hi John, Please review the attached Q4 sales report. We need to discuss the 15% decline in the Northeast region and develop an action plan for Q1. The board meeting is scheduled for next Friday. Key concerns: - Northeast sales down 15% - Customer retention issues - Competitor pricing pressure. Please prepare your analysis by Thursday.",
-        "timestamp": "2024-01-15T09:30:00Z",
-        "isRead": False
-    },
-    {
-        "id": "2", 
-        "subject": "Team Building Event - Save the Date",
-        "sender": "hr@company.com",
-        "body": "Dear Team, We are excited to announce our annual team building event on March 15th at Central Park. Activities include: outdoor games, BBQ lunch, and networking sessions. Please RSVP by March 1st. Looking forward to seeing everyone there!",
-        "timestamp": "2024-01-14T14:20:00Z",
-        "isRead": True
-    },
-    {
-        "id": "3",
-        "subject": "Security Alert: Unusual Login Activity", 
-        "sender": "security@company.com",
-        "body": "SECURITY ALERT: We detected unusual login activity on your account from IP 192.168.1.100 at 2:30 AM EST. If this was not you, please change your password immediately and contact IT security. If this was you, please disregard this message.",
-        "timestamp": "2024-01-14T07:45:00Z",
-        "isRead": False
-    },
-    {
-        "id": "4",
-        "subject": "Project Alpha - Weekly Status Update",
-        "sender": "project.lead@company.com", 
-        "body": "Weekly update for Project Alpha: Frontend development is 80% complete, backend API integration is on track for next week. Challenges: Third-party API rate limits causing delays. Next steps: Complete user authentication module and begin testing phase.",
-        "timestamp": "2024-01-13T16:00:00Z",
-        "isRead": True
-    },
-    {
-        "id": "5",
-        "subject": "Invoice #12345 - Payment Due",
-        "sender": "billing@vendor.com",
-        "body": "Invoice #12345 for $2,500 is due on January 20th. Services: Cloud hosting and database management for December 2023. Payment methods: Bank transfer or credit card. Late fees apply after due date.",
-        "timestamp": "2024-01-12T11:15:00Z", 
-        "isRead": False
-    }
+    {"id": "1", "subject": "Q4 Sales Report - Action Required", "sender": "sarah.manager@company.com", "body": "Hi John, Please review the attached Q4 sales report. We need to discuss the 15% decline in the Northeast region and develop an action plan for Q1. The board meeting is scheduled for next Friday.", "timestamp": "2024-01-15T09:30:00Z", "isRead": False},
+    {"id": "2", "subject": "URGENT: Q4 Board Meeting Preparation", "sender": "ceo@company.com", "body": "Team, the Q4 board meeting is this Friday. We must address the Northeast sales decline of 15% and present our Q1 recovery strategy. All department heads must attend with prepared analysis.", "timestamp": "2024-01-15T11:45:00Z", "isRead": False},
+    {"id": "3", "subject": "Team Building Event - Save the Date", "sender": "hr@company.com", "body": "Dear Team, We are excited to announce our annual team building event on March 15th at Central Park. Activities include: outdoor games, BBQ lunch, and networking sessions. Please RSVP by March 1st.", "timestamp": "2024-01-14T14:20:00Z", "isRead": True},
+    {"id": "4", "subject": "Reminder: Team Event RSVP Needed", "sender": "events@company.com", "body": "This is a reminder about the March 15th team building event at Central Park. We still need RSVPs from several team members. Please respond by March 1st so we can finalize catering and activities.", "timestamp": "2024-02-25T10:30:00Z", "isRead": False},
+    {"id": "5", "subject": "Security Alert: Unusual Login Activity", "sender": "security@company.com", "body": "SECURITY ALERT: We detected unusual login activity on your account from IP 192.168.1.100 at 2:30 AM EST. If this was not you, please change your password immediately and contact IT security.", "timestamp": "2024-01-14T07:45:00Z", "isRead": False},
+    {"id": "6", "subject": "Project Alpha - Weekly Status Update", "sender": "project.lead@company.com", "body": "Weekly update for Project Alpha: Frontend development is 80% complete, backend API integration is on track for next week. Challenges: Third-party API rate limits causing delays.", "timestamp": "2024-01-13T16:00:00Z", "isRead": True},
+    {"id": "7", "subject": "Project Alpha Update - API Issues", "sender": "dev.team@company.com", "body": "Update on Project Alpha: We're experiencing significant delays due to third-party API rate limiting. Frontend is nearly complete at 85% but backend integration is blocked. Need to discuss alternative solutions.", "timestamp": "2024-01-14T09:15:00Z", "isRead": False},
+    {"id": "8", "subject": "Invoice #12345 - Payment Due", "sender": "billing@vendor.com", "body": "Invoice #12345 for $2,500 is due on January 20th. Services: Cloud hosting and database management for December 2023. Payment methods: Bank transfer or credit card.", "timestamp": "2024-01-12T11:15:00Z", "isRead": False},
+    {"id": "9", "subject": "FINAL NOTICE: Invoice #12345 Payment", "sender": "collections@vendor.com", "body": "Final notice for Invoice #12345 ($2,500) which was due January 20th. Payment is now 5 days overdue. Late fees of $125 have been applied. Please remit payment immediately to avoid service suspension.", "timestamp": "2024-01-25T14:30:00Z", "isRead": False},
+    {"id": "10", "subject": "System Maintenance Window", "sender": "it.ops@company.com", "body": "Scheduled maintenance on Sunday 2-6 AM EST. All systems will be offline including email, CRM, and file servers. Please save your work and log out by 1:30 AM. Emergency contact: 555-0199.", "timestamp": "2024-01-10T16:30:00Z", "isRead": True},
+    {"id": "11", "subject": "Maintenance Reminder - This Sunday", "sender": "it.admin@company.com", "body": "Reminder: System maintenance is scheduled for this Sunday 2-6 AM EST. All company systems will be unavailable. Please complete any urgent work before 1:30 AM and log out of all systems.", "timestamp": "2024-01-12T08:45:00Z", "isRead": False},
+    {"id": "12", "subject": "Password Expiry Reminder", "sender": "it.security@company.com", "body": "Your password expires in 3 days. Please update it using the company portal. New password must be 12+ characters with uppercase, lowercase, numbers, and symbols. Contact IT if you need assistance.", "timestamp": "2024-01-06T08:30:00Z", "isRead": False},
+    {"id": "13", "subject": "ACTION REQUIRED: Password Expires Tomorrow", "sender": "security.admin@company.com", "body": "URGENT: Your password expires tomorrow! You must update it today to avoid account lockout. Use the company portal to change your password. Requirements: 12+ characters, mixed case, numbers, symbols.", "timestamp": "2024-01-08T07:00:00Z", "isRead": False},
+    {"id": "14", "subject": "Budget Approval Request", "sender": "finance@company.com", "body": "Your budget request for $15,000 for new development tools has been approved. Please submit purchase orders by end of week. Contact procurement for vendor setup and payment processing.", "timestamp": "2024-01-08T14:22:00Z", "isRead": False},
+    {"id": "15", "subject": "Office Supply Order", "sender": "admin@company.com", "body": "Monthly office supply order is being placed Thursday. Submit requests by Wednesday noon. Include quantities and specific brands if needed. Budget limit is $500 per department.", "timestamp": "2024-01-04T11:20:00Z", "isRead": True}
 ]

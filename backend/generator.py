@@ -36,7 +36,16 @@ def perform_qa(question, text):
     return generate_conversation("us.amazon.nova-pro-v1:0", system_prompts, messages)
 
 def summarize_emails(text):
-    system_prompts = [{"text": "You are an email assistant that creates concise summaries of email content. Focus on key actions, deadlines, and important information in 30 words or less."}]
+    system_prompts = [{"text": """
+                       You are an email assistant that creates concise summaries of email content. 
+                       Focus on key actions, deadlines, and important information. 
+                       Group related emails together.
+                       If there is no email content, say 'No recent email content'.
+                       If there is no summary, say 'No summary'.
+                       Ignore obvious spam.
+                       Categorize emails urgent, updates, subscribed emails, communications, and low-priority.
+                       Do not exceed 100 words per section.
+                       """}]
     messages = [{"role": "user", "content": [{"text": f"Summarize this email: {text}"}]}]
     return generate_conversation("us.amazon.nova-pro-v1:0", system_prompts, messages)
 

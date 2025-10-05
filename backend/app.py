@@ -8,8 +8,6 @@ CORS(app)
 
 summaries = []
 
-
-
 # Email routes
 @app.route('/api/emails')
 def get_emails():
@@ -20,26 +18,18 @@ def get_email(email_id):
     email = next((e for e in emails if e['id'] == email_id), None)
     return jsonify(email) if email else jsonify({"error": "Not found"}), 404
 
-@app.route('/api/emails/<email_id>/summary')
-def get_summary(email_id):
-    # Check if summary already exists
-    existing = next((s for s in summaries if s['emailId'] == email_id), None)
-    if existing:
-        return jsonify(existing)
+@app.route('/api/summarize', methods=['POST'])
+def summarize_all_emails():
+    # Get all email bodies
+    all_email_content = "\n\n---\n\n".join([f"Subject: {e['subject']}\nFrom: {e['sender']}\nBody: {e['body']}" for e in emails])
     
-    # Generate new summary using AI
-    email = next((e for e in emails if e['id'] == email_id), None)
-    if not email:
-        return jsonify({"error": "Email not found"}), 404
+    # Generate summary for all emails
+    ai_summary = summarize_emails(all_email_content)
     
-    ai_summary = summarize_emails(email['body'])
-    summary = {
-        "id": f"summary_{email_id}",
-        "emailId": email_id,
-        "summary": ai_summary
-    }
-    summaries.append(summary)
-    return jsonify(summary)
+    return jsonify({
+        "summary": ai_summary,
+        "emailCount": len(emails)
+    })
 
 @app.route('/api/summaries')
 def get_summaries():
