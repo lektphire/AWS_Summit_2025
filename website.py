@@ -56,7 +56,7 @@ def fetch_and_summarize_emails():
                     "subject": email["subject"],
                     "body": email["body"],
                     "date": datetime.fromisoformat(email["timestamp"].replace('Z', '+00:00')).replace(tzinfo=None),
-                    "category": "Work",  # Default category
+                    "category": email.get("category", "Work"),  # Use backend category
                     "priority": "Medium",  # Default priority
                     "summary": email["body"][:100] + "..."  # Simple summary
                 })
@@ -174,19 +174,7 @@ if st.button("Refresh and Apply Rules"):
     st.session_state.emails = emails
     st.success("Inbox refreshed and rules applied!")
 
-# AI Summary Integration
-if st.button("Generate AI Summary from Backend", type="primary"):
-    try:
-        response = requests.get("http://127.0.0.1:3000/api/summarize")
-        if response.status_code == 200:
-            data = response.json()
-            st.success(f"AI Summary generated for {data['emailCount']} emails")
-            st.subheader("Backend AI Summary")
-            st.write(data['summary'])
-        else:
-            st.error("Failed to generate AI summary")
-    except requests.exceptions.RequestException as e:
-        st.error(f"Backend connection error: {e}")
+
 
 # Current time for relative time calculation
 current_time = datetime.now()
@@ -195,16 +183,49 @@ current_time = datetime.now()
 st.header("AI-Generated Inbox Summary")
 st.markdown("A high-level overview of your inbox, grouped by category.")
 
+# Fetch AI summary from backend
+try:
+    response = requests.get("http://127.0.0.1:3000/api/summarize")
+    if response.status_code == 200:
+        data = response.json()
+        st.info(f"AI Summary for {data['emailCount']} emails")
+        st.markdown("### 🤖 AI Analysis")
+        st.write(data['summary'])
+    else:
+        st.warning("AI summary not available - showing basic overview")
+except requests.exceptions.RequestException:
+    st.warning("Backend not available - showing basic overview")
+
 # Group emails by category
-categories = sorted(list(set(email["category"] for email in st.session_state.emails)))
+all_categories = ["Work", "Education", "Finance", "Personal", "Subscriptions", "Promotions", "Spam"]
+existing_categories = list(set(email["category"] for email in st.session_state.emails))
+categories = [cat for cat in all_categories if cat in existing_categories] + [cat for cat in existing_categories if cat not in all_categories]
+
+# Reorder Categories section (moved here after categories are defined)
+st.sidebar.subheader("Reorder Categories")
+if "category_order" not in st.session_state:
+    st.session_state.category_order = categories
+
+reordered_categories = st.sidebar.multiselect(
+    "Drag to reorder (top = first tab):",
+    options=categories,
+    default=[cat for cat in st.session_state.category_order if cat in categories],
+    key="category_reorder"
+)
+
+if reordered_categories:
+    st.session_state.category_order = reordered_categories
+    categories = reordered_categories
+
 category_emails = {cat: [e for e in st.session_state.emails if e["category"] == cat] for cat in categories}
 
+st.markdown("### 📂 Category Breakdown")
 for category in categories:
     emails = category_emails[category]
     mini_summary = get_mini_summary(emails)
     with st.expander(f"{category} ({len(emails)}) - {mini_summary}"):
         emails.sort(key=lambda e: e["date"], reverse=True)
-        st.markdown("**Summary of emails:**")
+        st.markdown("**Recent emails:**")
         for email in emails:
             st.markdown(f"- [{email['summary']}](#email-{email['id']})")
 
