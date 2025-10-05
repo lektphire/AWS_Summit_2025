@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import requests
+import html
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from auth import Authenticator
@@ -12,6 +13,12 @@ allowed_users = os.getenv("ALLOWED_USERS").split(",")
 
 # Function to generate relative time string
 def get_relative_time(email_date, current_time):
+    # Make both datetimes timezone-naive for comparison
+    if email_date.tzinfo is not None:
+        email_date = email_date.replace(tzinfo=None)
+    if current_time.tzinfo is not None:
+        current_time = current_time.replace(tzinfo=None)
+    
     delta = current_time - email_date
     seconds = delta.total_seconds()
     
@@ -48,7 +55,7 @@ def fetch_and_summarize_emails():
                     "sender": email["sender"],
                     "subject": email["subject"],
                     "body": email["body"],
-                    "date": datetime.fromisoformat(email["timestamp"].replace('Z', '+00:00')),
+                    "date": datetime.fromisoformat(email["timestamp"].replace('Z', '+00:00')).replace(tzinfo=None),
                     "category": "Work",  # Default category
                     "priority": "Medium",  # Default priority
                     "summary": email["body"][:100] + "..."  # Simple summary
@@ -205,6 +212,36 @@ for category in categories:
 st.header("Your Full Inbox")
 st.markdown("Scroll through your entire inbox, organized by category.")
 
+# Add refresh button for inbox
+col1, col2 = st.columns([1, 4])
+with col1:
+    if st.button("🔄 Refresh Inbox"):
+        try:
+            response = requests.get("http://127.0.0.1:3000/api/emails")
+            if response.status_code == 200:
+                backend_emails = response.json()
+                emails = []
+                for email in backend_emails:
+                    emails.append({
+                        "id": email["id"],
+                        "sender": email["sender"],
+                        "subject": email["subject"],
+                        "body": email["body"],
+                        "date": datetime.fromisoformat(email["timestamp"].replace('Z', '+00:00')).replace(tzinfo=None),
+                        "category": "Work",
+                        "priority": "Medium",
+                        "summary": email["body"][:100] + "..."
+                    })
+                emails = apply_custom_rules(emails, st.session_state.rules)
+                st.session_state.emails = emails
+                st.success(f"Refreshed {len(emails)} emails from backend!")
+            else:
+                st.error("Failed to refresh emails")
+        except requests.exceptions.RequestException as e:
+            st.error(f"Backend connection error: {e}")
+with col2:
+    st.write(f"Showing {len(st.session_state.emails)} emails from backend API")
+
 # Create tabs with "All" first, followed by categories
 tabs = st.tabs(["All"] + categories)
 
@@ -225,14 +262,14 @@ with tabs[0]:
                 date_display = f"{date_str} ({relative_time})"
                 
                 with st.container():
-                    st.markdown(f"<div id='email-{email['id']}'></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div id='email-{html.escape(email['id'])}'></div>", unsafe_allow_html=True)
                     st.markdown(
                         f"""
-                        <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
-                            <b>{email['subject']} - From: {email['sender']} (Priority: {email['priority']})</b>
+                        <div style='background-color: rgba(0,0,0,0.05); padding: 8px; border-radius: 8px; border-left: 3px solid #1f77b4;'>
+                            <b>{html.escape(email['subject'])} - From: {html.escape(email['sender'])} (Priority: {html.escape(email['priority'])})</b>
                         </div>
-                        <div style='padding: 5px;'>
-                            {date_display} - {email['summary']}
+                        <div style='padding: 5px; color: #666;'>
+                            {html.escape(date_display)} - {html.escape(email['summary'])}
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -261,14 +298,14 @@ for i, category in enumerate(categories, 1):
                 date_display = f"{date_str} ({relative_time})"
                 
                 with st.container():
-                    st.markdown(f"<div id='email-{email['id']}'></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div id='email-{html.escape(email['id'])}'></div>", unsafe_allow_html=True)
                     st.markdown(
                         f"""
-                        <div style='background-color: #f0f0f0; padding: 5px; border-radius: 5px;'>
-                            <b>{email['subject']} - From: {email['sender']} (Priority: {email['priority']})</b>
+                        <div style='background-color: rgba(0,0,0,0.05); padding: 8px; border-radius: 8px; border-left: 3px solid #1f77b4;'>
+                            <b>{html.escape(email['subject'])} - From: {html.escape(email['sender'])} (Priority: {html.escape(email['priority'])})</b>
                         </div>
                         <div style='padding: 5px;'>
-                            {date_display} - {email['summary']}
+                            {html.escape(date_display)} - {html.escape(email['summary'])}
                         </div>
                         """,
                         unsafe_allow_html=True
