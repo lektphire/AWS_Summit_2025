@@ -41,7 +41,7 @@ if st.session_state["connected"]:
 
         try:
             # Define the Flask backend URL
-            backend_url = "http://127.0.0.1:5000/gmail-access"
+            backend_url = "http://127.0.0.1:5000/gmail-labels"
 
             # Make a POST request with the credentials
             response = requests.post(backend_url, json=creds_dict)
